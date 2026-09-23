@@ -1,0 +1,119 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Hampel\CloseApi\Laravel\Tests;
+
+use Hampel\CloseApi\Laravel\CloseServiceProvider;
+use Hampel\CloseApi\Laravel\Facades\Close;
+use Hampel\CloseApi\Laravel\Http\PendingRequestClient;
+use Hampel\CloseApi\Laravel\Tests\Fixture\ForeignPsr18Provider;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestInterface;
+
+/**
+ * This package installed beside another that binds the shared PSR-18 key.
+ *
+ * `Psr\Http\Client\ClientInterface` is one key in the container. When every API wrapper claimed
+ * it with singleton(), the last provider registered supplied the transport for all of them, so
+ * one package's timeouts governed another's traffic and a fix to one adapter reached an
+ * application only if that package happened to register last. Measured in a real application
+ * with three of these wrappers installed. No single-package suite could see it, which is why
+ * the foreign provider here is a stub rather than a sibling.
+ */
+final class SharedPsr18BindingTest extends TestCase
+{
+    /**
+     * @return list<class-string>
+     */
+    protected function getPackageProviders($app): array
+    {
+        // Registered FIRST, so this package's provider comes after it - the ordering the old
+        // binding happened to survive.
+        return [ForeignPsr18Provider::class, CloseServiceProvider::class];
+    }
+
+    #[Test]
+    public function a_provider_registered_before_this_one_does_not_supply_its_transport(): void
+    {
+        $this->assertOwnTransportIsUsed();
+    }
+
+    #[Test]
+    public function a_provider_registered_before_this_one_keeps_its_own_binding(): void
+    {
+        // The half of the before-order that the old binding broke from the other side. It used
+        // this package's own transport in that order too - by overwriting the shared key - so
+        // asserting only that would pass against it. What changed is that another package's
+        // binding now survives this provider's registration.
+        $this->assertNotNull(ForeignPsr18Provider::$client);
+        $this->assertSame(ForeignPsr18Provider::$client, $this->container()->make(ClientInterface::class));
+    }
+
+    #[Test]
+    public function a_provider_registered_after_this_one_does_not_supply_its_transport(): void
+    {
+        // The ordering the old binding lost: another package's provider replacing the shared
+        // key after this one had bound it.
+        // force: the class is already registered above, and register() would otherwise hand back
+        // that instance without running register() again.
+        $this->container()->register(new ForeignPsr18Provider($this->container()), force: true);
+
+        $this->assertOwnTransportIsUsed();
+    }
+
+    #[Test]
+    public function a_sibling_adapter_that_is_also_faked_does_not_lend_its_timeout(): void
+    {
+        // The realistic collision, and the one the 418 stub cannot stand in for. A sibling
+        // wrapper's adapter is a PendingRequestClient too, sending through the SAME faked HTTP
+        // factory, so Http::fake() answers whichever adapter sends and the response looks right.
+        // Only the timeout tells them apart - which is what the consuming application measured.
+        //
+        // The sibling's resolver makes the application's factory, not a new one: a fresh Factory
+        // would send past the fake, and the test would fail on the network instead of on the
+        // timeout.
+        $app = $this->container();
+
+        $app->singleton(ClientInterface::class, static fn (): ClientInterface => new PendingRequestClient(
+            static fn (): Factory => $app->make(Factory::class),
+            3.0,
+            1.0,
+        ));
+
+        $this->assertOwnTransportIsUsed();
+    }
+
+    private function assertOwnTransportIsUsed(): void
+    {
+        $this->container()->make('config')->set('close.timeout', 4);
+
+        // An ArrayObject rather than a reference: the outer arrow function captures by value, so
+        // a reference taken inside it would point at a copy.
+        /** @var \ArrayObject<int, mixed> $timeouts */
+        $timeouts = new \ArrayObject();
+
+        Http::globalMiddleware(static fn (callable $handler): callable => static function (RequestInterface $request, array $options) use ($handler, $timeouts): mixed {
+            $timeouts[] = $options['timeout'] ?? null;
+
+            return $handler($request, $options);
+        });
+
+        Http::fake(['api.close.com/*' => Http::response(self::lead())]);
+
+        $this->assertSame('Wayne Enterprises', Close::leads()->get('lead_abc123')['name']);
+
+        $this->assertSame([], ForeignPsr18Provider::$client->sent ?? []);
+        $this->assertSame([4.0], $timeouts->getArrayCopy());
+    }
+
+    protected function tearDown(): void
+    {
+        ForeignPsr18Provider::$client = null;
+
+        parent::tearDown();
+    }
+}
