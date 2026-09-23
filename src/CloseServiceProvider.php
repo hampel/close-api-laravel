@@ -31,12 +31,10 @@ use Psr\Log\LoggerInterface;
  *
  * `Psr\Http\Client\ClientInterface` is deliberately not used. It is a single key in the
  * container, and other API wrappers bind it too. singleton() on a key that is already bound
- * replaces it, so the provider registered last supplied the transport for every package: one
- * package's timeouts applied to another's requests. This was measured in an application with
- * three such wrappers installed. For the same reason the manager does not fall back to a
- * ClientInterface binding when one exists, because another package may be the one that made
- * it. The sibling BinaryLane, Cloudflare, Linode and XenForo wrappers follow the same
- * `<config key>.http_client` convention.
+ * replaces it, so the provider registered last would supply the transport for every package:
+ * one package's timeouts applied to another's requests. For the same reason the manager does not
+ * fall back to a ClientInterface binding when one exists, because another package may be the one
+ * that made it.
  */
 final class CloseServiceProvider extends ServiceProvider
 {

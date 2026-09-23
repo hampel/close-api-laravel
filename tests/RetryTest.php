@@ -145,9 +145,8 @@ final class RetryTest extends TestCase
     public function a_wait_is_skipped_when_sleep_is_faked_after_the_client_was_resolved(): void
     {
         // Sleep decides whether it is faked when each wait runs, so a test can resolve the
-        // client in setUp and fake Sleep later. The test measures wall-clock time: a check
-        // against Carbon would also pass if the process really slept for twenty seconds, and an
-        // earlier version of this test did exactly that.
+        // client in setUp and fake Sleep later. The test measures wall-clock time, because a real
+        // sleep advances Carbon by the same amount and a Carbon check would pass against it.
         $client = Close::client();
 
         Sleep::fake();

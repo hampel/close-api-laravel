@@ -17,12 +17,10 @@ use Psr\Http\Message\RequestInterface;
 /**
  * This package installed beside another that binds the shared PSR-18 key.
  *
- * `Psr\Http\Client\ClientInterface` is one key in the container. When every API wrapper claimed
- * it with singleton(), the last provider registered supplied the transport for all of them, so
- * one package's timeouts governed another's traffic and a fix to one adapter reached an
- * application only if that package happened to register last. Measured in a real application
- * with three of these wrappers installed. No single-package suite could see it, which is why
- * the foreign provider here is a stub rather than a sibling.
+ * `Psr\Http\Client\ClientInterface` is one key in the container. If every API wrapper claimed it
+ * with singleton(), the last provider registered would supply the transport for all of them, so
+ * one package's timeouts would govern another's traffic. A suite that installs one package cannot
+ * see that, so the other package here is a stub provider.
  */
 final class SharedPsr18BindingTest extends TestCase
 {
@@ -66,14 +64,14 @@ final class SharedPsr18BindingTest extends TestCase
     }
 
     #[Test]
-    public function a_sibling_adapter_that_is_also_faked_does_not_lend_its_timeout(): void
+    public function another_packages_adapter_that_is_also_faked_does_not_lend_its_timeout(): void
     {
-        // The realistic collision, and the one the 418 stub cannot stand in for. A sibling
-        // wrapper's adapter is a PendingRequestClient too, sending through the SAME faked HTTP
-        // factory, so Http::fake() answers whichever adapter sends and the response looks right.
-        // Only the timeout tells them apart - which is what the consuming application measured.
+        // The realistic collision, and the one the 418 stub cannot stand in for. Another
+        // wrapper's adapter would be a PendingRequestClient too, sending through the SAME faked
+        // HTTP factory, so Http::fake() answers whichever adapter sends and the response looks
+        // right. Only the timeout tells them apart.
         //
-        // The sibling's resolver makes the application's factory, not a new one: a fresh Factory
+        // The other adapter's resolver makes the application's factory, not a new one: a fresh Factory
         // would send past the fake, and the test would fail on the network instead of on the
         // timeout.
         $app = $this->container();

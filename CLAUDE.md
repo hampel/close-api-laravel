@@ -1,9 +1,7 @@
 # hampel/close-api-laravel
 
 Laravel integration for `hampel/close-api`: a service provider, a manager for named accounts, a
-facade, and one adapter that is the reason the package exists. It follows the same pattern as the
-sibling BinaryLane, Cloudflare, Linode and XenForo wrappers. **Where this file is silent, their
-reasoning applies unchanged.**
+facade, and one adapter that is the reason the package exists.
 
 ## Commands
 
@@ -29,40 +27,43 @@ composer format         # pint
 ## `Http::fake()` reaching the core package's traffic is the claim everything rests on
 
 `tests/HttpFakeTest.php` asserts it. The adapter's docblock carries the load-bearing decisions,
-each copied from the siblings and each with its reason:
+each with its reason:
 
 - **Rebuild the pending request on every send**, from a factory **resolved on every send**.
 - **Share one Guzzle handler**, so keep-alive survives.
 - **Call `send()` with the options set by hand.**
 - **Pass transport options from an allowlist.**
 
-**One decision is this package's own: `laravel_data` is filled from the query string.** Laravel
-puts a GET's query there, which is what `$request['status_id']` reads in an assertion. The adapter
-receives a finished PSR-7 request, so it parses the parameters back out of the URI. Close is
-filtered almost entirely through query parameters, so without this the assertion a consumer
-writes most often raises "Undefined array key". The siblings pass `[]` and their APIs rarely
-notice. `TransportTest::a_get_filter_is_readable_by_the_assertion` pins it.
+**`laravel_data` is filled from the query string.** Laravel puts a GET's query there, which is
+what `$request['status_id']` reads in an assertion. The adapter receives a finished PSR-7 request,
+so it parses the parameters back out of the URI. Close is filtered almost entirely through query
+parameters, so without this the assertion a consumer writes most often raises "Undefined array
+key". `TransportTest::a_get_filter_is_readable_by_the_assertion` pins it.
 
 ## The transport lives under `close.http_client`, never the shared PSR-18 key
 
 **Bound with `singletonIf()`, and the manager is built from that key alone.** It does not bind
-or read `Psr\Http\Client\ClientInterface`. See binarylane-api-laravel's `CLAUDE.md` for the
-measured collision this avoids. `SharedPsr18BindingTest` and `HttpClientOverrideTest` are the
-guards. **Do not add a fallback to `ClientInterface`.**
+or read `Psr\Http\Client\ClientInterface`. That key is shared by every package that uses it, and
+`singleton()` on a bound key replaces it, so in an application with several API wrappers the last
+provider registered would supply the transport, and the timeouts, for all of them.
+`singletonIf()` rather than `singleton()` because Laravel Zero lists `AppServiceProvider` before a
+package provider, so `singleton()` would replace an application's override there.
+`SharedPsr18BindingTest` and `HttpClientOverrideTest` are the guards. **Do not add a fallback to
+`ClientInterface`.**
 
 `close.retry_policy` is the same shape for the core package's `RetryPolicy`: `singletonIf()`,
 built from `close.retries` by default, and type-checked when the manager is built.
 
 ## Retries wait through `Sleep`, so the manager builds the `Transport` itself
 
-**The core package's `Close::withKey()` takes no `Sleeper`, so the manager calls `new
-Transport(...)` directly.** Without `LaravelSleeper`, a consumer's faked 429 or 5xx-on-GET
-would block the test for real. Probed: with `SystemSleeper` swapped in, three `RetryTest` cases
-fail and the file takes 25 seconds instead of under one.
+**The manager calls `new Transport(...)` directly, passing `LaravelSleeper`.** `Close::withKey()`
+takes a `Sleeper` but no base URI, and the manager passes the configured one. Without
+`LaravelSleeper`, a consumer's faked 429 or 5xx-on-GET would block the test for real. Probed:
+with `SystemSleeper` swapped in, three `RetryTest` cases fail and the file takes 25 seconds
+instead of under one.
 
-**`RetryTest` measures wall-clock time, not Carbon.** An earlier version checked
-`Sleep::fake(syncWithCarbon: true)` against Carbon's clock. It passed against the real sleeper
-too, because the process really did sleep twenty seconds and Carbon advanced by the same amount.
+**`RetryTest` measures wall-clock time, not Carbon.** A real sleep advances Carbon by the same
+amount, so a Carbon check passes against the real sleeper.
 
 **No live run has seen a 429 or a `RateLimit` header.** The core package's harness has not
 received one in any run, so the fakes in `RetryTest` follow Close's documentation. A green suite
@@ -89,16 +90,25 @@ account.
   `http` or `https` scheme or no host. Otherwise it would surface as a transport error naming a
   host.
 - **The package's exceptions extend the core's `InvalidArgumentException`**, which is not final,
-  so they are `CloseApiException`s. The siblings extend a base class; Close's base is an
-  interface.
+  so they are `CloseApiException`s. The core package's base type is an interface, so there is no
+  base class to extend.
 - **`composer-require-checker` carries the undeclared-dependency check, and is not in
   `composer check`.** Every whitelisted symbol belongs to a component that is in `require`, and
   `laravel/framework` replaces those components, so the checker cannot see which package
   declares them. A new `Illuminate` symbol reported there is a prompt to check `require`. Run it
-  by hand after changing any `use` in `src/`, as binarylane-api-laravel's `CLAUDE.md` describes.
-- **`failOnDeprecation` needs help under Testbench**, as in the siblings: `withoutDeprecationHandling()`
-  in `setUp()`, and `ConfigurationTest` registers and boots the provider against an application
-  built in the test body.
+  by hand after changing any `use` in `src/`:
+
+  ```bash
+  mkdir -p /tmp/crc && composer -d /tmp/crc require maglnet/composer-require-checker
+  /tmp/crc/vendor/bin/composer-require-checker check \
+      --config-file=.github/composer-require-checker.json composer.json
+  ```
+
+- **`failOnDeprecation` needs help under Testbench.** Laravel's error handler replaces PHPUnit's
+  when the application boots, and discards deprecations while testing.
+  `withoutDeprecationHandling()` in `setUp()` covers code a test runs; `ConfigurationTest`
+  registers and boots the provider against an application built in the test body, because
+  Testbench runs both before `setUp()` can install the strict handler.
 - **Laravel Zero binds no HTTP factory and runs no discovery.** `LaravelZeroTest` builds that
   container by hand.
 

@@ -33,9 +33,9 @@ use Psr\Log\LoggerInterface;
  * rate limit on the Transport (`lastRateLimit()`), and Close limits each API key separately.
  * A Transport shared between two keys would report whichever key made the most recent call.
  *
- * The Transport is built here rather than through `Close::withKey()`, because withKey() has no
- * parameter for a Sleeper and this package needs one: LaravelSleeper, which lets `Sleep::fake()`
- * skip the retry waits.
+ * The Transport is built here rather than through `Close::withKey()`, because withKey() takes no
+ * base URI, and this package passes the configured one. It also passes LaravelSleeper, which lets
+ * `Sleep::fake()` skip the retry waits.
  *
  * The @mixin lets static analysis follow $manager->leads(): __call() forwards any method the
  * client has. The facade repeats the list explicitly, because __callStatic() can only be typed
