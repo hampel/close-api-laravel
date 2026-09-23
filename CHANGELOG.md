@@ -27,4 +27,4 @@ Initial release.
 - `Illuminate\Http\Client\Factory` is bound as a singleton when the application has not bound one
 - `UnknownAccount` and `InvalidConfiguration` extend the core package's `InvalidArgumentException`,
   so both are `CloseApiException`s
-- Requires `hampel/close-api` `^0.1.1`, PHP 8.3, and Laravel 12 or 13
+- Requires `hampel/close-api` `^0.1.3`, PHP 8.3, and Laravel 12 or 13

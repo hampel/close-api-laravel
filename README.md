@@ -121,7 +121,24 @@ The core package decides what is retried:
 
 **The wait blocks whatever made the call.** In a web request, that request waits. If Close asks
 for a longer wait than `max_delay`, the request fails with `RateLimitException` straight away, so
-keep `max_delay` short where a person is waiting. A queued job can afford a longer one.
+keep `max_delay` short where a person is waiting.
+
+**In a queue worker, a wait holds the worker.** Nothing else runs on it while it sleeps through
+Close's rate limit window. A job can instead fail fast and release itself for as long as Close
+asked, with `max_attempts` set to `1`:
+
+```php
+use Hampel\CloseApi\Exception\RateLimitException;
+
+try {
+    Close::leads()->create($attributes);
+} catch (RateLimitException $e) {
+    $this->release((int) ceil($e->waitSeconds()));
+}
+```
+
+`max_attempts` applies to every account and every caller. If web requests should still retry,
+bind a policy of your own under `close.retry_policy` that decides per context.
 
 To go beyond these three numbers, bind any `Hampel\CloseApi\Http\RetryPolicy` under
 `close.retry_policy`:
@@ -265,9 +282,9 @@ The package's real code runs, and only the socket is replaced. So a faked 404 st
   `GET`, and the body of a request that has one. A list parameter is comma-joined, as Close
   expects: `$request['_fields']` is `'id,name'`, not an array.
 - **Give every fake a body.** `Http::fake()` with no arguments answers every request with an
-  empty 200. With `hampel/close-api` 0.1.1 that decodes to an empty response, which reads as "no
-  leads" rather than as a fixture you forgot. The core package's next release raises
-  `DecodeException` for it, because Close never answers with an empty body.
+  empty 200, which raises `DecodeException`. Close never answers a 2xx with an empty body, even
+  on a delete, so an empty body means the response came from something other than Close. A
+  forgotten fixture fails loudly instead of reading as "no leads".
 - **Fake `Sleep` when you fake an error.** A faked 429, or a 5xx on a `GET`, is retried with a
   real wait unless `Sleep::fake()` is on. `Sleep::assertSleptTimes()` then says how many retries
   there were.
@@ -305,7 +322,7 @@ this traffic. The core package's own log lines cover it instead: see [Logging](#
 ## Versioning
 
 `hampel/close-api` is 0.x, so its public API can change in a minor release. This package
-constrains it to `^0.1.1` and expects to raise that constraint.
+constrains it to `^0.1.3` and expects to raise that constraint.
 
 ## Licence
 
