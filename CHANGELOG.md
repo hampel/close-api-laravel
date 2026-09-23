@@ -7,8 +7,7 @@ Initial release.
 - `CloseServiceProvider` binds `CloseManager`, merges `config/close.php` and publishes it under
   the `close-config` tag
 - `CloseManager` builds one `Hampel\CloseApi\Close` per configured account, memoised by name, each
-  with its own `Transport` so `lastRateLimit()` reports that account's key. A call that names no
-  account goes to the default account
+  with its own `Transport`. A call that names no account goes to the default account
 - `CloseManager::withAuthentication()` builds a client for a credential that is not in the config,
   such as an OAuth access token, over the same transport. It is not memoised
 - `Close` facade, with a `@method` annotation for each method on the core package's `Close`
@@ -20,11 +19,10 @@ Initial release.
   `close.retry_policy`, each only when nothing has bound it already
 - `close.retries` sets `max_attempts`, `base_delay` and `max_delay` for the core package's
   `DefaultRetryPolicy`
-- Retry waits go through Laravel's `Sleep`, so `Sleep::fake()` skips them
+- `Sleep::fake()` skips retry waits
 - The configured `timeout` and `connect_timeout` and the transport settings from
   `Http::globalOptions()` are applied to requests. Global headers, `auth`, `query` and body
   options are not
 - `Illuminate\Http\Client\Factory` is bound as a singleton when the application has not bound one
-- `UnknownAccount` and `InvalidConfiguration` extend the core package's `InvalidArgumentException`,
-  so both are `CloseApiException`s
+- `UnknownAccount` and `InvalidConfiguration` are `CloseApiException`s
 - Requires `hampel/close-api` `^0.2`, PHP 8.3, and Laravel 12 or 13
