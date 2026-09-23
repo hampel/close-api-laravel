@@ -6,6 +6,7 @@ namespace Hampel\CloseApi\Laravel\Tests;
 
 use Hampel\CloseApi\Auth\BearerToken;
 use Hampel\CloseApi\Exception\RateLimitException;
+use Hampel\CloseApi\Http\NoRetryPolicy;
 use Hampel\CloseApi\Laravel\CloseManager;
 use Hampel\CloseApi\Laravel\CloseServiceProvider;
 use Hampel\CloseApi\Laravel\Facades\Close;
@@ -85,6 +86,26 @@ final class ReadmeExamplesTest extends TestCase
 
         $this->assertSame('Wayne Enterprises', $lead['name']);
         Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.close.com/api/v1/lead/lead_abc123/');
+    }
+
+    #[Test]
+    public function the_queue_worker_example_fails_at_once_without_sleeping(): void
+    {
+        Sleep::fake();
+
+        $this->container()->singleton(CloseServiceProvider::RETRY_POLICY, fn () => new NoRetryPolicy());
+        $this->container()->forgetInstance(CloseManager::class);
+
+        Http::fake(['api.close.com/*' => Http::response(['error' => 'Too many requests'], 429, ['Retry-After' => '3'])]);
+
+        try {
+            Close::leads()->create(['name' => 'Wayne Enterprises']);
+            $this->fail('Expected a RateLimitException.');
+        } catch (RateLimitException $e) {
+            $this->assertSame(3, (int) ceil($e->waitSeconds()));
+            Http::assertSentCount(1);
+            Sleep::assertNeverSlept();
+        }
     }
 
     #[Test]

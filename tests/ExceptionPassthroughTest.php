@@ -111,7 +111,7 @@ final class ExceptionPassthroughTest extends TestCase
         // Http::fake() with no arguments answers every request with an empty 200, and is the
         // easiest mistake to make in a consumer's suite. Close never answers a 2xx with an empty
         // body (the core package checked eighteen GET endpoints and DELETE, which returns {}), so
-        // from hampel/close-api 0.1.3 an empty body raises instead of reading as an empty result.
+        // since hampel/close-api 0.1.3 an empty body raises instead of reading as an empty result.
         Http::fake();
 
         $this->expectException(DecodeException::class);

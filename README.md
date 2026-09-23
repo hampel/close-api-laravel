@@ -124,8 +124,17 @@ for a longer wait than `max_delay`, the request fails with `RateLimitException` 
 keep `max_delay` short where a person is waiting.
 
 **In a queue worker, a wait holds the worker.** Nothing else runs on it while it sleeps through
-Close's rate limit window. A job can instead fail fast and release itself for as long as Close
-asked, with `max_attempts` set to `1`:
+Close's rate limit window. Bind the core package's `NoRetryPolicy` so that a failure reaches the
+job at once:
+
+```php
+use Hampel\CloseApi\Http\NoRetryPolicy;
+use Hampel\CloseApi\Laravel\CloseServiceProvider;
+
+$this->app->singleton(CloseServiceProvider::RETRY_POLICY, fn () => new NoRetryPolicy());
+```
+
+Then the job releases itself for as long as Close asked:
 
 ```php
 use Hampel\CloseApi\Exception\RateLimitException;
@@ -137,8 +146,8 @@ try {
 }
 ```
 
-`max_attempts` applies to every account and every caller. If web requests should still retry,
-bind a policy of your own under `close.retry_policy` that decides per context.
+The binding applies to every account and every caller. If web requests should still retry, bind
+a policy of your own that decides per context instead.
 
 To go beyond these three numbers, bind any `Hampel\CloseApi\Http\RetryPolicy` under
 `close.retry_policy`:
@@ -322,7 +331,7 @@ this traffic. The core package's own log lines cover it instead: see [Logging](#
 ## Versioning
 
 `hampel/close-api` is 0.x, so its public API can change in a minor release. This package
-constrains it to `^0.1.3` and expects to raise that constraint.
+constrains it to `^0.2` and expects to raise that constraint.
 
 ## Licence
 
