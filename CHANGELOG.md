@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased
+
+- Requires Laravel 12.71 or later, or 13.40 or later
+
 ## 0.1.0 (2026-09-23)
 
 Initial release.

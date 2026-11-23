@@ -24,6 +24,18 @@ composer format         # pint
 | `src/Exception/` | configuration failures, in the core package's hierarchy |
 | `config/close.php` | the published config |
 
+## Version support
+
+PHP `>=8.3`, Laravel `^12.71|^13.40`. PHPStan runs at level 10 with `phpVersion` spanning 8.3 to
+8.5; keep `phpstan.neon.dist` in step with the `php` constraint. CI tests three corners: PHP 8.3
+with Laravel 12 and `--prefer-lowest`, PHP 8.3 with Laravel 13, and PHP 8.5 with Laravel 13.
+
+**The Laravel floors are the lowest releases Composer will install.** Composer 2.9 and later
+refuse a release affected by a published security advisory, so on 2026-11-24 nothing below
+12.71.0 or 13.40.0 resolved, and a lower floor promised versions nobody could install or test.
+When a new advisory covers the floor, the `--prefer-lowest` job fails to resolve: raise the floor
+to what resolves, and re-run the suite and PHPStan there on PHP 8.3.
+
 ## `Http::fake()` reaching the core package's traffic is the claim everything rests on
 
 `tests/HttpFakeTest.php` asserts it. The adapter's docblock carries the load-bearing decisions,
