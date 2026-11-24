@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 0.2.0 (2026-11-24)
 
 - Requires Laravel 12.71 or later, or 13.40 or later
 - Requires `guzzlehttp/guzzle` 7.15.2 or 8.1 or later, and `guzzlehttp/psr7` 2.13 or 3.1 or later
