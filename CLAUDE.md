@@ -26,15 +26,17 @@ composer format         # pint
 
 ## Version support
 
-PHP `>=8.3`, Laravel `^12.71|^13.40`. PHPStan runs at level 10 with `phpVersion` spanning 8.3 to
-8.5; keep `phpstan.neon.dist` in step with the `php` constraint. CI tests three corners: PHP 8.3
-with Laravel 12 and `--prefer-lowest`, PHP 8.3 with Laravel 13, and PHP 8.5 with Laravel 13.
+PHP `>=8.3`, Laravel `^12.71|^13.40`, `guzzlehttp/guzzle` `^7.15.2|^8.1` and `guzzlehttp/psr7`
+`^2.13|^3.1`. PHPStan runs at level 10 with `phpVersion` spanning 8.3 to 8.5; keep
+`phpstan.neon.dist` in step with the `php` constraint. CI tests three corners: PHP 8.3 with
+Laravel 12 and `--prefer-lowest`, PHP 8.3 with Laravel 13, and PHP 8.5 with Laravel 13.
 
-**The Laravel floors are the lowest releases Composer will install.** Composer 2.9 and later
-refuse a release affected by a published security advisory, so on 2026-11-24 nothing below
-12.71.0 or 13.40.0 resolved, and a lower floor promised versions nobody could install or test.
-When a new advisory covers the floor, the `--prefer-lowest` job fails to resolve: raise the floor
-to what resolves, and re-run the suite and PHPStan there on PHP 8.3.
+**The Laravel, Guzzle and PSR-7 floors are the lowest releases Composer will install.** Composer
+2.9 and later refuse a release affected by a published security advisory. On 2026-11-24 nothing
+below Laravel 12.71.0 or 13.40.0, Guzzle 7.15.2 or 8.1.0, or PSR-7 2.13.0 or 3.1.0 resolved, so a
+lower floor promised versions nobody could install or test. When a new advisory covers a floor,
+the `--prefer-lowest` job fails to resolve: raise the floor to what resolves, and re-run the suite
+and PHPStan there on PHP 8.3.
 
 ## `Http::fake()` reaching the core package's traffic is the claim everything rests on
 
